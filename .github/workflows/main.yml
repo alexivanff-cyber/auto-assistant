@@ -24,10 +24,26 @@ jobs:
           gradle-version: '8.0'
 
       - name: Build APK
-        run: gradle assembleRelease --no-daemon
+        run: gradle assembleRelease assembleDebug --no-daemon
 
-      - name: Upload APK
+      - name: Find APK files
+        run: |
+          echo "Looking for APK files..."
+          find . -name "*.apk" -type f
+          
+      - name: Upload Release APK
         uses: actions/upload-artifact@v4
         with:
-          name: auto-assistant-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          name: auto-assistant-release
+          path: |
+            **/app-release.apk
+            **/app-release-unsigned.apk
+          if-no-files-found: warn
+          
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: auto-assistant-debug
+          path: |
+            **/app-debug.apk
+          if-no-files-found: warn
