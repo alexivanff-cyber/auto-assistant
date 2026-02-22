@@ -1,8 +1,10 @@
 package com.autoassistant.data.voice
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -74,12 +76,14 @@ class STTManager @Inject constructor(@ApplicationContext private val context: Co
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
         
-        val extras = Bundle().apply {
-            putString(SpeechRecognizer.EXTRA_LANGUAGE, locale.toLanguageTag())
-            putBoolean(SpeechRecognizer.EXTRA_PARTIAL_RESULTS, true)
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE, locale.toLanguageTag())
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
         }
         
-        speechRecognizer?.startListening(extras)
+        speechRecognizer?.startListening(intent)
     }
     
     fun stopListening() { 
