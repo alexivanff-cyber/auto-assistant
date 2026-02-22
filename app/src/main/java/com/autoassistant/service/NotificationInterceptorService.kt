@@ -7,6 +7,7 @@ import com.autoassistant.data.prefs.SettingsRepository
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -27,25 +28,24 @@ class NotificationInterceptorService : NotificationListenerService() {
         
         Log.d(TAG, "Notification from: $packageName")
         
-        // Проверяем настройки
         scope.launch {
-            val ignoreGroups = settingsRepo.ignoreGroups.collectFirst()
-            
-            // Пропускаем групповые чаты если настроено
-            if (ignoreGroups && sbn.isGroup) {
-                Log.d(TAG, "Skipping group notification")
-                return@launch
-            }
-            
-            // Обрабатываем только WhatsApp и Telegram
-            if (packageName == "com.whatsapp" || packageName == "org.telegram.messenger") {
-                val extras = notification.extras
-                val title = extras.getString("android.title") ?: ""
-                val text = extras.getString("android.text") ?: ""
+            try {
+                val ignoreGroups = settingsRepo.ignoreGroups.first()
                 
-                Log.d(TAG, "Title: $title, Text: $text")
+                if (ignoreGroups && sbn.isGroup) {
+                    Log.d(TAG, "Skipping group notification")
+                    return@launch
+                }
                 
-                // Здесь будет логика озвучивания через TTSManager
+                if (packageName == "com.whatsapp" || packageName == "org.telegram.messenger") {
+                    val extras = notification.extras
+                    val title = extras.getString("android.title") ?: ""
+                    val text = extras.getString("android.text") ?: ""
+                    
+                    Log.d(TAG, "Title: $title, Text: $text")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Error processing notification: ${e.message}")
             }
         }
     }
