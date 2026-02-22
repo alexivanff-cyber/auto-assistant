@@ -1,12 +1,10 @@
 package com.autoassistant.ui
 
-import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,9 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import com.autoassistant.data.prefs.SettingsRepository
 import com.autoassistant.data.voice.STTManager
 import com.autoassistant.data.voice.TTSManager
@@ -50,7 +52,35 @@ class MainActivity : ComponentActivity() {
         ttsManager.initialize { }
         setContent {
             MaterialTheme {
-                val hasNotificationAccess = isNotificationAccessEnabled()
+                var hasNotificationAccess by remember { mutableStateOf(isNotificationAccessEnabled()) }
+                val lifecycleOwner = LocalLifecycleOwner.current
+
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            hasNotificationAccess = isNotificationAccessEnabled()
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose {
+                        lifecycleOwner.lifecycle.removeObserver(observer)
+                    }
+                }
+
+                LaunchedEffect(Unit) {
+                    if (!hasNotificationAccess) {
+                        try {
+                            val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                            startActivity(intent)
+                        } catch (e: Exception) {
+                            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = android.net.Uri.fromParts("package", packageName, null)
+                            }
+                            startActivity(intent)
+                        }
+                    }
+                }
+
                 AssistantScreen(
                     settingsRepo, 
                     voiceMachine, 
@@ -61,7 +91,6 @@ class MainActivity : ComponentActivity() {
                             val intent = Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
                             startActivity(intent)
                         } catch (e: Exception) {
-                            // Если не работает, открываем настройки приложений
                             val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                                 data = android.net.Uri.fromParts("package", packageName, null)
                             }
@@ -111,14 +140,12 @@ fun AssistantScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Заголовок
         Text(
             text = "🎙️ АлексО",
             style = MaterialTheme.typography.headlineMedium,
             modifier = Modifier.padding(vertical = 8.dp)
         )
         
-        // Статус доступа к уведомлениям
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -164,12 +191,9 @@ fun AssistantScreen(
             }
         }
         
-        // Кнопка доступа (только если нет доступа)
         if (!hasNotificationAccess) {
             Button(
-                onClick = {
-                    onGrantNotification()
-                },
+                onClick = { onGrantNotification() },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary
@@ -178,15 +202,29 @@ fun AssistantScreen(
                 Text("🔔 ВКЛЮЧИТЬ ДОСТУП К УВЕДОМЛЕНИЯМ") 
             }
             
-            // Кнопка инструкции
+            val context = LocalContext.current
+            Button(
+                onClick = {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = android.net.Uri.fromParts("package", context.packageName, null)
+                    }
+                    context.startActivity(intent)
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFE65100)
+                )
+            ) {
+                Text("🔓 СНЯТЬ ОГРАНИЧЕНИЕ (АНДРОИД 13+)")
+            }
+
             OutlinedButton(
                 onClick = { showInstructions = true },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("📋 ПОКАЗАТЬ ИНСТРУКЦИЮ")
+                Text("📋 ИНСТРУКЦИЯ (ЕСЛИ ДОСТУП ОГРАНИЧЕН)")
             }
         } else {
-            // Если доступ есть — показываем сообщение
             Card(
                 modifier = Modifier.fillMaxWidth(),
                 colors = CardDefaults.cardColors(
@@ -202,41 +240,38 @@ fun AssistantScreen(
             }
         }
         
-        // Диалог с инструкцией
         if (showInstructions) {
+            val context = LocalContext.current
             AlertDialog(
                 onDismissRequest = { showInstructions = false },
-                title = { Text("📋 Как включить доступ") },
+                title = { Text("� Снятие ограничения", style = MaterialTheme.typography.titleLarge) },
                 text = {
                     Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                        Text("Шаг 1: Откройте настройки телефона", modifier = Modifier.padding(vertical = 4.dp))
-                        Text("Шаг 2: Приложения → АлексО", modifier = Modifier.padding(vertical = 4.dp))
-                        Text("Шаг 3: Разрешения → включите всё", modifier = Modifier.padding(vertical = 4.dp))
-                        Text("Шаг 4: Дополнительно → Специальный доступ", modifier = Modifier.padding(vertical = 4.dp))
-                        Text("Шаг 5: Доступ к уведомлениям → включите", modifier = Modifier.padding(vertical = 4.dp))
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = "⚠️ Если переключатель неактивен:",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.Red,
-                            modifier = Modifier.padding(top = 8.dp)
-                        )
-                        Text("• Перезапустите телефон", modifier = Modifier.padding(vertical = 2.dp))
-                        Text("• Подождите 5-10 минут", modifier = Modifier.padding(vertical = 2.dp))
-                        Text("• Попробуйте снова", modifier = Modifier.padding(vertical = 2.dp))
+                        Text("Это функция Android 13+ для защиты от сторонних приложений. Если после нажатия 'ВКЛЮЧИТЬ ДОСТУП' ползунок серый:", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
+                        Text("1. Нажмите оранжевую кнопку «СНЯТЬ ОГРАНИЧЕНИЕ» (откроются настройки приложения АлексО).", modifier = Modifier.padding(vertical = 4.dp))
+                        Text("2. Нажмите на три точки в правом верхнем углу (или прокрутите в самый низ).", modifier = Modifier.padding(vertical = 4.dp))
+                        Text("3. Выберите «Разрешить скрытые настройки» или «Управление уведомлениями».", modifier = Modifier.padding(vertical = 4.dp))
+                        Text("4. Подтвердите отпечатком пальца или паролем (по запросу).", modifier = Modifier.padding(vertical = 4.dp))
+                        Text("5. Теперь снова нажмите «ВКЛЮЧИТЬ ДОСТУП» — ползунок загорится!", modifier = Modifier.padding(top = 8.dp, bottom = 4.dp), fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     }
                 },
                 confirmButton = {
-                    Button(onClick = { showInstructions = false }) {
-                        Text("ПОНЯТНО")
-                    }
+                    Button(onClick = { 
+                        val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                            data = android.net.Uri.fromParts("package", context.packageName, null)
+                        }
+                        context.startActivity(intent)
+                        showInstructions = false 
+                    }) { Text("ОТКРЫТЬ НАСТРОЙКИ") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showInstructions = false }) { Text("ПОЗЖЕ") }
                 }
             )
         }
         
         Spacer(modifier = Modifier.height(8.dp))
         
-        // Переключатели
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -244,57 +279,30 @@ fun AssistantScreen(
             )
         ) {
             Column(modifier = Modifier.padding(12.dp)) {
-                Text(
-                    text = "⚙️ НАСТРОЙКИ",
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.padding(bottom = 12.dp)
-                )
+                Text("⚙️ НАСТРОЙКИ", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(bottom = 12.dp))
                 
-                SwitchWithLabel(
-                    "Ассистент", 
-                    "Включить голосового ассистента", 
-                    assistantEnabled
-                ) { 
+                SwitchWithLabel("Ассистент", "Включить голосового ассистента", assistantEnabled) { 
                     assistantEnabled = it
                     scope.launch { settingsRepo.setAssistantEnabled(it) } 
                 }
-                
                 Divider(modifier = Modifier.padding(vertical = 8.dp))
-                
-                SwitchWithLabel(
-                    "Только Bluetooth", 
-                    "Работать только с гарнитурой", 
-                    btOnly
-                ) { 
+                SwitchWithLabel("Только Bluetooth", "Работать только с гарнитурой", btOnly) { 
                     btOnly = it
                     scope.launch { settingsRepo.setBtOnly(it) } 
                 }
-                
                 Divider(modifier = Modifier.padding(vertical = 8.dp))
-                
-                SwitchWithLabel(
-                    "Подтверждение отправки", 
-                    "Требовать команду 'отправить'", 
-                    confirmSend
-                ) { 
+                SwitchWithLabel("Подтверждение отправки", "Требовать команду 'отправить'", confirmSend) { 
                     confirmSend = it
                     scope.launch { settingsRepo.setConfirmSend(it) } 
                 }
-                
                 Divider(modifier = Modifier.padding(vertical = 8.dp))
-                
-                SwitchWithLabel(
-                    "Игнорировать группы", 
-                    "Не читать групповые чаты", 
-                    ignoreGroups
-                ) { 
+                SwitchWithLabel("Игнорировать группы", "Не читать групповые чаты", ignoreGroups) { 
                     ignoreGroups = it
                     scope.launch { settingsRepo.setIgnoreGroups(it) } 
                 }
             }
         }
         
-        // Статус ассистента
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
@@ -342,30 +350,13 @@ fun AssistantScreen(
 @Composable
 fun SwitchWithLabel(label: String, hint: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label, 
-                style = MaterialTheme.typography.bodyLarge,
-                color = if (checked) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = hint, 
-                style = MaterialTheme.typography.labelSmall, 
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            Text(text = label, style = MaterialTheme.typography.bodyLarge)
+            Text(text = hint, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Switch(
-            checked = checked, 
-            onCheckedChange = onCheckedChange,
-            colors = SwitchDefaults.colors(
-                checkedThumbColor = Color.White,
-                checkedTrackColor = MaterialTheme.colorScheme.primary
-            )
-        )
+        Switch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
