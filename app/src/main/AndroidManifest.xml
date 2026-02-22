@@ -2,14 +2,23 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
+    <!-- Основные разрешения -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
+    <!-- Разрешения для доступа к уведомлениям -->
+    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
+    <uses-permission android:name="android.permission.READ_NOTIFICATIONS" tools:ignore="ProtectedPermissions" />
+    
+    <!-- Bluetooth разрешения -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    
+    <!-- Аудио и питание -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
@@ -45,6 +54,13 @@
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
+            <!-- Метаданные для Android 13+ -->
+            <meta-data
+                android:name="android.service.notification.default_filter_types"
+                android:value="alerting|silent|ongoing" />
+            <meta-data
+                android:name="android.service.notification.disabled_filter_types"
+                android:value="" />
         </service>
 
         <receiver
