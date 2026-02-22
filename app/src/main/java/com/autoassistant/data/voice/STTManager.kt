@@ -43,10 +43,6 @@ class STTManager @Inject constructor(@ApplicationContext private val context: Co
         }
         
         val locale = detectLanguage()
-        val params = Bundle().apply {
-            putString("language", locale.toLanguageTag())
-            putBoolean("partial_results", true)
-        }
         
         speechRecognizer?.setRecognitionListener(object : RecognitionListener {
             override fun onResults(results: Bundle?) {
@@ -78,7 +74,12 @@ class STTManager @Inject constructor(@ApplicationContext private val context: Co
             override fun onEvent(eventType: Int, params: Bundle?) {}
         })
         
-        speechRecognizer?.startListening(params)
+        val extras = Bundle().apply {
+            putString(SpeechRecognizer.EXTRA_LANGUAGE, locale.toLanguageTag())
+            putBoolean(SpeechRecognizer.EXTRA_PARTIAL_RESULTS, true)
+        }
+        
+        speechRecognizer?.startListening(extras)
     }
     
     fun stopListening() { 
