@@ -10,7 +10,6 @@
     
     <!-- Разрешения для доступа к уведомлениям -->
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
-    <uses-permission android:name="android.permission.READ_NOTIFICATIONS" tools:ignore="ProtectedPermissions" />
     
     <!-- Bluetooth разрешения -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
@@ -21,6 +20,9 @@
     <!-- Аудио и питание -->
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
+    
+    <!-- Для обхода ограничений -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:name=".AutoAssistantApp"
@@ -47,20 +49,15 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <!-- Служба уведомлений для Android 11+ -->
         <service
             android:name=".service.NotificationInterceptorService"
-            android:exported="false"
+            android:label="АлексО"
+            android:exported="true"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
-            <!-- Метаданные для Android 13+ -->
-            <meta-data
-                android:name="android.service.notification.default_filter_types"
-                android:value="alerting|silent|ongoing" />
-            <meta-data
-                android:name="android.service.notification.disabled_filter_types"
-                android:value="" />
         </service>
 
         <receiver
